@@ -1,13 +1,29 @@
+// ✅ Use your actual Render backend URL here
+const API_URL = 'https://your-backend-service.onrender.com/api/books';
 
-const API_URL = 'https://api-node-serverr.onrender.com/api/books';
-
-
-
+// ==================== FETCH BOOKS ====================
 async function fetchBooks(search = '') {
-    const res = await fetch(`${API_URL}?search=${search}`);
-    const books = await res.json();
+    try {
+        const res = await fetch(`${API_URL}?search=${encodeURIComponent(search)}`);
+        if (!res.ok) throw new Error(`Error ${res.status}: ${res.statusText}`);
+        const books = await res.json();
+        renderBooks(books);
+    } catch (err) {
+        console.error("❌ Failed to fetch books:", err);
+        document.getElementById('bookList').innerHTML =
+            `<li class="text-red-500">⚠️ Failed to load books. Please try again later.</li>`;
+    }
+}
+
+// Render books in the list
+function renderBooks(books) {
     const bookList = document.getElementById('bookList');
     bookList.innerHTML = '';
+    if (books.length === 0) {
+        bookList.innerHTML = `<li class="text-gray-500">No books found.</li>`;
+        return;
+    }
+
     books.forEach(book => {
         const li = document.createElement('li');
         li.className = 'book-item flex justify-between items-center p-4 bg-gray-100 dark:bg-gray-600 rounded-lg shadow-sm transition duration-300';
@@ -17,15 +33,17 @@ async function fetchBooks(search = '') {
                 <p>Author: ${book.author} | ISBN: ${book.isbn} | Year: ${book.publishedYear}</p>
             </div>
             <div>
-                <button onclick="editBook('${book._id}', '${book.title}', '${book.author}', '${book.isbn}', ${book.publishedYear})" class="text-blue-500 hover:text-blue-700 mr-2"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg></button>
-                <button onclick="deleteBook('${book._id}')" class="text-red-500 hover:text-red-700"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg></button>
+                <button onclick="editBook('${book._id}', '${book.title}', '${book.author}', '${book.isbn}', ${book.publishedYear})"
+                    class="text-blue-500 hover:text-blue-700 mr-2">✏️</button>
+                <button onclick="deleteBook('${book._id}')"
+                    class="text-red-500 hover:text-red-700">🗑️</button>
             </div>
         `;
         bookList.appendChild(li);
     });
 }
 
-// Add book
+// ==================== ADD BOOK ====================
 document.getElementById('addBookForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const book = {
@@ -34,16 +52,23 @@ document.getElementById('addBookForm').addEventListener('submit', async (e) => {
         isbn: document.getElementById('isbn').value,
         publishedYear: document.getElementById('publishedYear').value
     };
-    await fetch(API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(book)
-    });
-    fetchBooks();
-    e.target.reset();
+
+    try {
+        const res = await fetch(API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(book)
+        });
+        if (!res.ok) throw new Error(`Error ${res.status}: ${res.statusText}`);
+        await res.json();
+        fetchBooks();
+        e.target.reset();
+    } catch (err) {
+        alert("❌ Failed to add book: " + err.message);
+    }
 });
 
-// Edit book
+// ==================== EDIT BOOK ====================
 function editBook(id, title, author, isbn, publishedYear) {
     document.getElementById('editId').value = id;
     document.getElementById('editTitle').value = title;
@@ -62,36 +87,49 @@ document.getElementById('editBookForm').addEventListener('submit', async (e) => 
         isbn: document.getElementById('editIsbn').value,
         publishedYear: document.getElementById('editPublishedYear').value
     };
-    await fetch(`${API_URL}/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(book)
-    });
-    fetchBooks();
-    closeModal();
+
+    try {
+        const res = await fetch(`${API_URL}/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(book)
+        });
+        if (!res.ok) throw new Error(`Error ${res.status}: ${res.statusText}`);
+        await res.json();
+        fetchBooks();
+        closeModal();
+    } catch (err) {
+        alert("❌ Failed to update book: " + err.message);
+    }
 });
 
-// Delete book
+// ==================== DELETE BOOK ====================
 async function deleteBook(id) {
     if (confirm('Delete this book?')) {
-        await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
-        fetchBooks();
+        try {
+            const res = await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
+            if (!res.ok) throw new Error(`Error ${res.status}: ${res.statusText}`);
+            await res.json();
+            fetchBooks();
+        } catch (err) {
+            alert("❌ Failed to delete book: " + err.message);
+        }
     }
 }
 
-// Close modal
+// ==================== CLOSE MODAL ====================
 document.getElementById('closeModal').addEventListener('click', closeModal);
 function closeModal() {
     document.getElementById('editModal').classList.add('hidden');
 }
 
-// Search
+// ==================== SEARCH ====================
 document.getElementById('searchInput').addEventListener('input', (e) => fetchBooks(e.target.value));
 
-// Dark Mode Toggle
+// ==================== DARK MODE ====================
 document.getElementById('darkModeToggle').addEventListener('click', () => {
     document.documentElement.classList.toggle('dark');
 });
 
-// Initial fetch
+// ==================== INITIAL FETCH ====================
 fetchBooks();
