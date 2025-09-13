@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -6,14 +7,18 @@ const bodyParser = require('body-parser');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors());
+app.use(cors({ origin: 'https://library-management-fullstack.netlify.app/p' }));
 app.use(bodyParser.json());
 
 require('dotenv').config();
 
-mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log("✅ MongoDB Atlas connected"))
-  .catch(err => console.error("MongoDB connection error:", err));
+mongoose.connect("mongodb+srv://Fullstack_nitin:Harkirat%4001@cluster0.ipqdtz5.mongodb.net/librarydb?retryWrites=true&w=majority", {
+    useNewUrlParser: true,
+    useUnifiedTopology: true
+})
+.then(() => console.log("MongoDB Atlas Connected"))
+.catch(err => console.error("MongoDB Connection Error:", err));
+;
 
 
 
