@@ -1,62 +1,135 @@
-require('dotenv').config();
-const express = require('express');
-const mongoose = require('mongoose');
-const cors = require('cors');
-const bodyParser = require('body-parser');
+// ✅ Use your actual Render backend URL here
+const API_URL = 'https://api-node-servers.onrender.com/api/books';
 
-const app = express();
-const PORT = process.env.PORT || 3000;
+// ==================== FETCH BOOKS ====================
+async function fetchBooks(search = '') {
+    try {
+        const res = await fetch(`${API_URL}?search=${encodeURIComponent(search)}`);
+        if (!res.ok) throw new Error(`Error ${res.status}: ${res.statusText}`);
+        const books = await res.json();
+        renderBooks(books);
+    } catch (err) {
+        console.error("❌ Failed to fetch books:", err);
+        document.getElementById('bookList').innerHTML =s
+            `<li class="text-red-500">⚠️ Failed to load books. Please try again later.</li>`;
+    }
+}
 
-app.use(cors({ origin: 'https://library-management-fullstack.netlify.app/p' }));
-app.use(bodyParser.json());
+// Render books in the list
+function renderBooks(books) {
+    const bookList = document.getElementById('bookList');
+    bookList.innerHTML = '';
+    if (books.length === 0) {
+        bookList.innerHTML = `<li class="text-gray-500">No books found.</li>`;
+        return;
+    }
 
-require('dotenv').config();
+    books.forEach(book => {
+        const li = document.createElement('li');
+        li.className = 'book-item flex justify-between items-center p-4 bg-gray-100 dark:bg-gray-600 rounded-lg shadow-sm transition duration-300';
+        li.innerHTML = `
+            <div>
+                <h3 class="font-bold">${book.title}</h3>
+                <p>Author: ${book.author} | ISBN: ${book.isbn} | Year: ${book.publishedYear}</p>
+            </div>
+            <div>
+                <button onclick="editBook('${book._id}', '${book.title}', '${book.author}', '${book.isbn}', ${book.publishedYear})"
+                    class="text-blue-500 hover:text-blue-700 mr-2">✏️</button>
+                <button onclick="deleteBook('${book._id}')"
+                    class="text-red-500 hover:text-red-700">🗑️</button>
+            </div>
+        `;
+        bookList.appendChild(li);
+    });
+}
 
-mongoose.connect("mongodb+srv://Fullstack_nitin:Harkirat%4001@cluster0.ipqdtz5.mongodb.net/librarydb?retryWrites=true&w=majority", {
-    useNewUrlParser: true,
-    useUnifiedTopology: true
-})
-.then(() => console.log("MongoDB Atlas Connected"))
-.catch(err => console.error("MongoDB Connection Error:", err));
-;
+// ==================== ADD BOOK ====================
+document.getElementById('addBookForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const book = {
+        title: document.getElementById('title').value,
+        author: document.getElementById('author').value,
+        isbn: document.getElementById('isbn').value,
+        publishedYear: document.getElementById('publishedYear').value
+    };
 
-
-
-
-const Book = require('./models/Book');
-
-// Get all books (with search)
-app.get('/api/books', async (req, res) => {
-  const search = req.query.search || '';
-  const books = await Book.find({
-    $or: [
-      { title: { $regex: search, $options: 'i' } },
-      { author: { $regex: search, $options: 'i' } }
-    ]
-  });
-  res.json(books);
+    try {
+        const res = await fetch(API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(book)
+        });
+        if (!res.ok) throw new Error(`Error ${res.status}: ${res.statusText}`);
+        await res.json();
+        fetchBooks();
+        e.target.reset();
+    } catch (err) {
+        alert("❌ Failed to add book: " + err.message);
+    }
 });
 
-// Add a book
-app.post('/api/books', async (req, res) => {
-  const { title, author, isbn, publishedYear } = req.body;
-  const book = new Book({ title, author, isbn, publishedYear });
-  await book.save();
-  res.json(book);
+// ==================== EDIT BOOK ====================
+function editBook(id, title, author, isbn, publishedYear) {
+    document.getElementById('editId').value = id;
+    document.getElementById('editTitle').value = title;
+    document.getElementById('editAuthor').value = author;
+    document.getElementById('editIsbn').value = isbn;
+    document.getElementById('editPublishedYear').value = publishedYear;
+    document.getElementById('editModal').classList.remove('hidden');
+}
+
+document.getElementById('editBookForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const id = document.getElementById('editId').value;
+    const book = {
+        title: document.getElementById('editTitle').value,
+        author: document.getElementById('editAuthor').value,
+        isbn: document.getElementById('editIsbn').value,
+        publishedYear: document.getElementById('editPublishedYear').value
+    };
+
+    try {
+        const res = await fetch(`${API_URL}/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(book)
+        });
+        if (!res.ok) throw new Error(`Error ${res.status}: ${res.statusText}`);
+        await res.json();
+        fetchBooks();
+        closeModal();
+    } catch (err) {
+        alert("❌ Failed to update book: " + err.message);
+    }
 });
 
-// Update a book
-app.put('/api/books/:id', async (req, res) => {
-  const { id } = req.params;
-  const updatedBook = await Book.findByIdAndUpdate(id, req.body, { new: true });
-  res.json(updatedBook);
+// ==================== DELETE BOOK ====================
+async function deleteBook(id) {
+    if (confirm('Delete this book?')) {
+        try {
+            const res = await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
+            if (!res.ok) throw new Error(`Error ${res.status}: ${res.statusText}`);
+            await res.json();
+            fetchBooks();
+        } catch (err) {
+            alert("❌ Failed to delete book: " + err.message);
+        }
+    }
+}
+
+// ==================== CLOSE MODAL ====================
+document.getElementById('closeModal').addEventListener('click', closeModal);
+function closeModal() {
+    document.getElementById('editModal').classList.add('hidden');
+}
+
+// ==================== SEARCH ====================
+document.getElementById('searchInput').addEventListener('input', (e) => fetchBooks(e.target.value));
+
+// ==================== DARK MODE ====================
+document.getElementById('darkModeToggle').addEventListener('click', () => {
+    document.documentElement.classList.toggle('dark');
 });
 
-// Delete a book
-app.delete('/api/books/:id', async (req, res) => {
-  const { id } = req.params;
-  await Book.findByIdAndDelete(id);
-  res.json({ message: 'Book deleted' });
-});
-
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+// ==================== INITIAL FETCH ====================
+fetchBooks();
